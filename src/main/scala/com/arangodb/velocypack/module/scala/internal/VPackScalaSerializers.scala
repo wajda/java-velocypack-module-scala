@@ -4,7 +4,7 @@ import com.arangodb.velocypack.VPackSerializer
 import com.arangodb.velocypack.VPackSerializationContext
 import com.arangodb.velocypack.VPackBuilder
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 object VPackScalaSerializers {
 

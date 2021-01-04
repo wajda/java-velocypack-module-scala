@@ -2,9 +2,9 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>com.arangodb</groupId>
-	<artifactId>velocypack-module-scala_2.13</artifactId>
-	<version>1.2.0</version>
+	<groupId>com.github.wajda.com.arangodb</groupId>
+	<artifactId>velocypack-module-scala_2.11</artifactId>
+	<version>1.2.0.1</version>
 	<inceptionYear>2017</inceptionYear>
 	<packaging>jar</packaging>
 
@@ -22,7 +22,44 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<github.global.server>github</github.global.server>
+		<!--<gpg.executable>gpg2</gpg.executable>-->
+
+		<!-- Scala cross-build properties -->
+
+		<default.scala.binary.version>2.11</default.scala.binary.version>
+		<default.scala.version>${scala_2.11.version}</default.scala.version>
+
+		<scala_2.11.version>2.11.12</scala_2.11.version>
+		<scala_2.12.version>2.12.10</scala_2.12.version>
+
+		<!--
+		===================================================================
+		DO NOT CHANGE MANUALLY!
+		These properties are controlled by `scala-cross-build-maven-plugin`
+		See: https://github.com/wajda/scala-cross-build-maven-plugin
+		===================================================================
+        -->
+		<scala.version>2.11.12</scala.version>
+		<scala.binary.version>2.11</scala.binary.version>
 	</properties>
+
+	<profiles>
+		<profile>
+			<id>scala-2.11</id>
+			<properties>
+				<scala.binary.version>2.11</scala.binary.version>
+				<scala.version>${scala_2.11.version}</scala.version>
+			</properties>
+		</profile>
+		<profile>
+			<id>scala-2.12</id>
+			<properties>
+				<scala.binary.version>2.12</scala.binary.version>
+				<scala.version>${scala_2.12.version}</scala.version>
+			</properties>
+		</profile>
+	</profiles>
 
 	<developers>
 		<developer>
@@ -32,56 +69,40 @@
 		</developer>
 	</developers>
 
-	<distributionManagement>
-		<snapshotRepository>
-			<id>ossrh</id>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</snapshotRepository>
-		<repository>
-			<id>ossrh</id>
-			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-		</repository>
-	</distributionManagement>
-
 	<repositories>
 		<repository>
-			<id>arangodb-snapshots</id>
-			<url>https://oss.sonatype.org/content/groups/staging</url>
+			<id>java-velocypack-mvn-repo</id>
+			<url>https://raw.github.com/wajda/java-velocypack/mvn-repo/</url>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</snapshots>
 		</repository>
 	</repositories>
+
+	<distributionManagement>
+		<repository>
+			<id>internal.repo</id>
+			<name>Temporary Staging Repository</name>
+			<url>file://${project.build.directory}/mvn-repo</url>
+		</repository>
+	</distributionManagement>
 
 	<build>
 		<plugins>
 			<plugin>
-				<groupId>org.sonatype.plugins</groupId>
-				<artifactId>nexus-staging-maven-plugin</artifactId>
-				<version>1.6.5</version>
-				<extensions>true</extensions>
+				<groupId>com.github.wajda</groupId>
+				<artifactId>scala-cross-build-maven-plugin</artifactId>
+				<version>0.2.1</version>
 				<configuration>
-					<serverId>ossrh</serverId>
-					<nexusUrl>https://oss.sonatype.org/</nexusUrl>
-					<stagingProfileId>84aff6e87e214c</stagingProfileId>
-					<autoReleaseAfterClose>false</autoReleaseAfterClose>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.1</version>
-				<configuration>
-					<source>1.8</source>
-					<target>1.8</target>
-					<skipMain>true</skipMain> <!-- skip compile -->
-					<skip>true</skip> <!-- skip testCompile -->
+					<defaultScalaBinaryVersion>${default.scala.binary.version}</defaultScalaBinaryVersion>
+					<defaultScalaVersion>${default.scala.version}</defaultScalaVersion>
 				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>com.google.code.sbt-compiler-maven-plugin</groupId>
 				<artifactId>sbt-compiler-maven-plugin</artifactId>
 				<version>1.0.0</version>
-				<configuration>
-					<scalaVersion>2.13.1</scalaVersion>
-				</configuration>
 				<executions>
 					<execution>
 						<id>default-sbt-compile</id>
@@ -138,7 +159,32 @@
 				<configuration>
 					<uniqueVersion>false</uniqueVersion>
 					<retryFailedDeploymentCount>10</retryFailedDeploymentCount>
+					<altDeploymentRepository>internal.repo::default::file://${project.build.directory}/mvn-repo</altDeploymentRepository>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>com.github.github</groupId>
+				<artifactId>site-maven-plugin</artifactId>
+				<version>0.12</version>
+				<configuration>
+					<merge>true</merge>
+					<message>Maven artifacts for ${project.version}</message>  <!-- git commit message -->
+					<noJekyll>true</noJekyll>                                  <!-- disable webpage processing -->
+					<outputDirectory>${project.build.directory}/mvn-repo</outputDirectory> <!-- matches distribution management repository url above -->
+					<branch>refs/heads/mvn-repo</branch>                       <!-- remote branch name -->
+					<includes><include>**/*</include></includes>
+					<repositoryName>java-velocypack-module-scala</repositoryName>      <!-- github repo name -->
+					<repositoryOwner>wajda</repositoryOwner>    <!-- github username  -->
+				</configuration>
+				<executions>
+					<!-- run site-maven-plugin's 'site' target as part of the build's normal 'deploy' phase -->
+					<execution>
+						<goals>
+							<goal>site</goal>
+						</goals>
+						<phase>deploy</phase>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -151,6 +197,12 @@
 						<goals>
 							<goal>sign</goal>
 						</goals>
+						<configuration>
+							<gpgArguments>
+								<arg>--pinentry-mode</arg>
+								<arg>loopback</arg>
+							</gpgArguments>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
@@ -184,8 +236,13 @@
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
+			<groupId>org.scala-lang</groupId>
+			<artifactId>scala-library</artifactId>
+			<version>${scala.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.scalatest</groupId>
-			<artifactId>scalatest_2.13</artifactId>
+			<artifactId>scalatest_${scala.binary.version}</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -209,7 +266,7 @@
 			</dependency>
 			<dependency>
 				<groupId>org.scalatest</groupId>
-				<artifactId>scalatest_2.13</artifactId>
+				<artifactId>scalatest_${scala.binary.version}</artifactId>
 				<version>3.2.0</version>
 			</dependency>
 			<dependency>
